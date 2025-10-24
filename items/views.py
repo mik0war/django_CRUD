@@ -11,7 +11,7 @@ from items.models import Item
 
 # Create your views here.
 
-def index(request):
+def index(request: WSGIRequest):
     text = 'Items app'
 
     return HttpResponse(text, status=200)
@@ -41,12 +41,17 @@ def create(request:WSGIRequest):
 
 
 @require_http_methods(['GET'])
-def read(request, item_id=None, sorting='ASC'):
+def read(request : WSGIRequest, item_id=None):
+
+    sorting = request.GET.get('sorting', 'ASC')
+
     if item_id is None:
         if sorting =='ASC':
             items_from_db = Item.objects.all().order_by('articul')
         elif sorting == 'DESC':
             items_from_db = Item.objects.all().order_by('-articul')
+        else:
+            return HttpResponse('Wrong value in sorting param', status=404)
 
         items = list(items_from_db)
 
@@ -83,6 +88,9 @@ def update(request:WSGIRequest, item_id):
 
     if 'articul' in body:
         item.articul = body['articul']
+
+    if 'name' in body:
+        item.name = body['name']
 
     item.save()
 
