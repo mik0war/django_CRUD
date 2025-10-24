@@ -41,9 +41,12 @@ def create(request:WSGIRequest):
 
 
 @require_http_methods(['GET'])
-def read(request, item_id=None):
+def read(request, item_id=None, sorting='ASC'):
     if item_id is None:
-        items_from_db = Item.objects.all()
+        if sorting =='ASC':
+            items_from_db = Item.objects.all().order_by('articul')
+        elif sorting == 'DESC':
+            items_from_db = Item.objects.all().order_by('-articul')
 
         items = list(items_from_db)
 
