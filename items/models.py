@@ -17,6 +17,7 @@ class Item(models.Model):
 
     def to_dict(self):
         return {
+            'name': self.name,
             'articul': self.articul,
             'id': self.id
         }

@@ -11,94 +11,83 @@ from items.models import Item
 
 # Create your views here.
 
-def index(request: WSGIRequest):
-    text = 'Items app'
-
-    return HttpResponse(text, status=200)
-
-
 @csrf_exempt
-@require_http_methods(['POST'])
-def create(request:WSGIRequest):
+@require_http_methods(['POST', 'GET', 'DELETE', 'PATCH'])
+def item_view(request:WSGIRequest, item_id:int=None):
 
-    body_dict = json.loads(request.body)
+    if request.method == 'GET':
+        sorting = request.GET.get('sorting', 'ASC')
 
-    if ('count' not in body_dict or
-        'price' not in body_dict or
-        'discount' not in body_dict):
-        return HttpResponse('count and price and discount required', status=400)
+        if item_id is None:
+            if sorting == 'ASC':
+                items_from_db = Item.objects.all().order_by('articul')
+            elif sorting == 'DESC':
+                items_from_db = Item.objects.all().order_by('-articul')
+            else:
+                return HttpResponse('Wrong value in sorting param', status=404)
 
-    item = Item(
-        **body_dict
-    )
+            items = list(items_from_db)
 
-    item.save()
+            return JsonResponse({'data': [i.to_dict() for i in items]})
 
-    return JsonResponse(data={
-        'status': 'created',
-        'item': item.to_dict()
-    })
+        try:
+            item = Item.objects.get(id=item_id)
+            return JsonResponse({'data': item.to_dict()})
+        except Item.DoesNotExist:
+            return JsonResponse({'status': 'no such record'}, status=404)
 
+    elif request.method == 'POST':
+        try:
+            body_dict = json.loads(request.body)
+        except json.decoder.JSONDecodeError:
+            return HttpResponse('Wrong json', status=400)
 
-@require_http_methods(['GET'])
-def read(request : WSGIRequest, item_id=None):
+        if ('count' not in body_dict or
+                'price' not in body_dict or
+                'discount' not in body_dict):
+            return HttpResponse('count and price and discount required', status=400)
 
-    sorting = request.GET.get('sorting', 'ASC')
+        item = Item(
+            **body_dict
+        )
 
-    if item_id is None:
-        if sorting =='ASC':
-            items_from_db = Item.objects.all().order_by('articul')
-        elif sorting == 'DESC':
-            items_from_db = Item.objects.all().order_by('-articul')
-        else:
-            return HttpResponse('Wrong value in sorting param', status=404)
+        item.save()
 
-        items = list(items_from_db)
+        return JsonResponse(data={
+            'status': 'created',
+            'item': item.to_dict()
+        })
 
-        return JsonResponse({'data': [i.to_dict() for i in items]})
+    elif request.method == 'DELETE':
+        try:
+            item = Item.objects.get(id=item_id)
 
-    item = Item.objects.get(id=item_id)
-    return JsonResponse({'data': item.to_dict()})
+            item_dict = item.to_dict()
 
+            item.delete()
 
+            return JsonResponse({'status': 'deleted', 'item': item_dict})
 
-@csrf_exempt
-@require_http_methods(['DELETE'])
-def delete(request, item_id):
+        except Item.DoesNotExist:
+            return JsonResponse({'status': 'no such record'}, status=404)
 
-    try:
-        item = Item.objects.get(id=item_id)
+    elif request.method == 'PATCH':
+        try:
+            item = Item.objects.get(id=item_id)
+        except Item.DoesNotExist:
+            return JsonResponse({'status': 'no such record'}, status=404)
 
-        item_dict = item.to_dict()
+        try:
+            body = json.loads(request.body)
+        except json.decoder.JSONDecodeError:
+            return HttpResponse('Wrong json', status=400)
 
-        item.delete()
+        if 'articul' in body:
+            item.articul = body['articul']
 
-        return JsonResponse({'status': 'deleted', 'item': item_dict})
+        if 'name' in body:
+            item.name = body['name']
 
-    except Item.DoesNotExist:
-        return JsonResponse({'status': 'no such record'}, status=404)
+        item.save()
 
-
-@csrf_exempt
-@require_http_methods(['PATCH'])
-def update(request:WSGIRequest, item_id):
-    item = Item.objects.get(id=item_id)
-
-    body = json.loads(request.body)
-
-    if 'articul' in body:
-        item.articul = body['articul']
-
-    if 'name' in body:
-        item.name = body['name']
-
-    item.save()
-
-    return JsonResponse({'status' : 'updated', 'item' : item.to_dict()})
-
-
-
-
-
-
-
+        return JsonResponse({'status': 'updated', 'item': item.to_dict()})
